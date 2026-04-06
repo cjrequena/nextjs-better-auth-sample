@@ -1,0 +1,43 @@
+
+services:
+  # -------------------------------------------------------
+  # PostgreSQL - Local Development
+  # -------------------------------------------------------
+  postgres-better-auth-local:
+    image: postgres:${POSTGRES_VERSION}
+    container_name: postgres-better-auth-local
+    hostname: postgres-better-auth-local
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      PGDATA: /data/postgres
+    volumes:
+      - postgres-data-better-auth-local:/data/postgres
+    ports:
+      - "54321:5432"
+    networks:
+      - local-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+# -------------------------------------------------------
+# Networks
+# -------------------------------------------------------
+networks:
+  local-network:
+    name: sample-network.local
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 171.28.0.0/16
+  # -------------------------------------------------------
+  # Volumes
+  # -------------------------------------------------------
+volumes:
+  postgres-data-better-auth-local:
