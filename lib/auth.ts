@@ -2,34 +2,7 @@ import { betterAuth } from "better-auth";
 import { createAuthMiddleware } from "better-auth/api";
 import { jwt } from "better-auth/plugins";
 import { Pool } from "pg";
-
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL ?? "http://localhost:8080";
-const AUTH_SERVICE_VERSION = process.env.AUTH_SERVICE_API_VERSION ?? "application/vnd.auth-service.v1";
-
-async function registerUserInAuthService(userId: string, email: string) {
-  const headers = {
-    "Content-Type": "application/json",
-    "Accept-Version": AUTH_SERVICE_VERSION,
-  };
-
-  const createRes = await fetch(`${AUTH_SERVICE_URL}/api/users`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ id: userId, email }),
-  });
-  if (!createRes.ok && createRes.status !== 409) {
-    console.error("[AUTH-SERVICE] Failed to create user:", await createRes.text());
-  }
-}
-
-async function fetchUserProfile(userId: string) {
-  const res = await fetch(
-    `${AUTH_SERVICE_URL}/api/users/me?user_id=${userId}`,
-    { headers: { "Accept-Version": AUTH_SERVICE_VERSION } }
-  );
-  if (!res.ok) return null;
-  return res.json();
-}
+import { registerUser, fetchUserProfile } from "@/services/auth-service";
 
 export const auth = betterAuth({
   database: new Pool({
@@ -48,8 +21,7 @@ export const auth = betterAuth({
     user: {
       create: {
         after: async (user) => {
-          console.log("[AUTH-SERVICE] databaseHook user.create.after fired for:", user.id, user.email);
-          await registerUserInAuthService(user.id, user.email);
+          await registerUser(user.id, user.email);
         },
       },
     },
