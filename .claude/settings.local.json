@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./mvnw compile:*)",
+      "Bash(mvn compile:*)",
+      "Bash(touch src/main/java/io/jaspe/auth/service/BusinessMemberService.java)"
+    ]
+  }
+}

@@ -1,0 +1,1601 @@
+openapi: 3.0.3
+info:
+  title: Auth Service API
+  description: Authentication, authorization, user identity, role and permission management for the Jaspe Clinic platform.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+tags:
+  - name: Auth Check
+    description: Permission evaluation endpoint
+  - name: Users
+    description: User identity and platform role management endpoints
+  - name: Roles
+    description: Role management endpoints
+  - name: Permissions
+    description: Permission management endpoints
+  - name: Business Members
+    description: Business membership management endpoints
+
+paths:
+
+  # ─────────────────────────────────────────────────────────────────
+  # Auth
+  # ─────────────────────────────────────────────────────────────────
+  /api/auth/check:
+    post:
+      tags: [Auth Check]
+      summary: Evaluate a permission for a user
+      description: Checks whether a user has a specific permission, optionally scoped to a business.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthCheckRequest'
+      responses:
+        '200':
+          description: Permission evaluated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthCheckResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/token:
+    post:
+      tags: [Auth Check]
+      summary: Issue a test JWT access token (dev/local only)
+      description: Issues a JWT access token for a user identified by email. Intended for local development only.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+        - name: email
+          in: query
+          required: true
+          schema:
+            type: string
+            format: email
+          example: admin@jaspe.io
+      responses:
+        '200':
+          description: Access token issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthAccessToken'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ─────────────────────────────────────────────────────────────────
+  # Users
+  # ─────────────────────────────────────────────────────────────────
+  /api/users/me:
+    get:
+      tags: [Users]
+      summary: Get current user profile
+      description: >
+        Returns the profile of the authenticated user, including platform roles, permissions,
+        and business memberships. In local profile, pass ?user_id= or ?email= as a fallback
+        when no JWT is present.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+        - name: user_id
+          in: query
+          required: false
+          description: User ID fallback for local profile (no JWT)
+          schema:
+            type: string
+            format: uuid
+        - name: email
+          in: query
+          required: false
+          description: Email fallback for local profile (no JWT)
+          schema:
+            type: string
+            format: email
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+        '401':
+          description: Not authenticated
+        '403':
+          description: Account is inactive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/users:
+    post:
+      tags: [Users]
+      summary: Create a new user identity
+      description: Creates a new user identity (idempotent).
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRequest'
+      responses:
+        '201':
+          description: User created successfully
+          headers:
+            Location:
+              description: URL of the created user
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Unique constraint violation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      tags: [Users]
+      summary: Get all users with filtering, sorting, and pagination
+      description: Retrieves users with optional RSQL filters, sorting, and pagination support.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+        - $ref: '#/components/parameters/Filters'
+        - $ref: '#/components/parameters/Offset'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Sort'
+      responses:
+        '200':
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Invalid filter or sort expression
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/users/count:
+    get:
+      tags: [Users]
+      summary: Get user count
+      description: Returns the total number of users.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+      responses:
+        '200':
+          description: Count retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: integer
+                format: int64
+                example: 42
+
+  /api/users/{id}:
+    get:
+      tags: [Users]
+      summary: Get user by ID
+      description: Retrieves a user by its unique identifier.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: User found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags: [Users]
+      summary: Update a user
+      description: Updates an existing user.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRequest'
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Unique constraint violation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    patch:
+      tags: [Users]
+      summary: Partially update a user
+      description: Applies a JSON Patch (RFC 6902) document to a user.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json-patch+json:
+            schema:
+              $ref: '#/components/schemas/JsonPatch'
+      responses:
+        '200':
+          description: User patched successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Invalid patch document or validation failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Unique constraint violation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags: [Users]
+      summary: Delete a user
+      description: Soft-deletes a user by ID.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204':
+          description: User deleted successfully
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/users/{id}/exists:
+    get:
+      tags: [Users]
+      summary: Check if user exists
+      description: Checks if a user exists by ID.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: User exists
+        '404':
+          description: User does not exist
+
+  /api/users/{userId}/roles:
+    get:
+      tags: [Users]
+      summary: Get platform roles for a user
+      description: Retrieves all platform-scoped roles assigned to an active user.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+        - name: userId
+          in: path
+          required: true
+          description: User ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Roles retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RoleResponse'
+        '400':
+          description: User is not active
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags: [Users]
+      summary: Add platform roles to a user
+      description: Adds platform-scoped roles to a user without removing existing ones.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+        - name: userId
+          in: path
+          required: true
+          description: User ID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleAssignmentRequest'
+      responses:
+        '200':
+          description: Roles added successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RoleResponse'
+        '400':
+          description: Invalid role IDs or non-PLATFORM scope
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User or role not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags: [Users]
+      summary: Replace platform roles for a user
+      description: Replaces all platform-scoped roles for a user.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+        - name: userId
+          in: path
+          required: true
+          description: User ID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleAssignmentRequest'
+      responses:
+        '200':
+          description: Roles replaced successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RoleResponse'
+        '400':
+          description: Invalid role IDs or non-PLATFORM scope
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User or role not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags: [Users]
+      summary: Revoke platform roles from a user
+      description: Removes the specified platform-scoped roles from a user.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+        - name: userId
+          in: path
+          required: true
+          description: User ID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleAssignmentRequest'
+      responses:
+        '200':
+          description: Roles revoked successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RoleResponse'
+        '404':
+          description: User or role not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/users/{userId}/permissions:
+    get:
+      tags: [Users]
+      summary: Get effective platform permissions for a user
+      description: Retrieves all effective platform permissions for a user, including inherited permissions from role hierarchy.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+        - name: userId
+          in: path
+          required: true
+          description: User ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Permissions retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                  example: booking:read
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ─────────────────────────────────────────────────────────────────
+  # Roles
+  # ─────────────────────────────────────────────────────────────────
+  /api/roles:
+    post:
+      tags: [Roles]
+      summary: Create a role
+      description: Creates a new role.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleRequest'
+      responses:
+        '201':
+          description: Role created successfully
+          headers:
+            Location:
+              description: URL of the created role
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleResponse'
+        '400':
+          description: Invalid request data or circular hierarchy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Unique constraint violation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      tags: [Roles]
+      summary: List roles
+      description: Retrieves roles with optional scope filter, RSQL filters, sorting, and pagination.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+        - name: scope
+          in: query
+          required: false
+          description: Filter by scope
+          schema:
+            $ref: '#/components/schemas/ScopeType'
+        - $ref: '#/components/parameters/Filters'
+        - $ref: '#/components/parameters/Offset'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Sort'
+      responses:
+        '200':
+          description: Roles retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RoleResponse'
+        '400':
+          description: Invalid filter or sort expression
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/roles/{id}:
+    get:
+      tags: [Roles]
+      summary: Get role by ID
+      description: Retrieves a role by its unique identifier.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Role found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleResponse'
+        '404':
+          description: Role not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags: [Roles]
+      summary: Update a role
+      description: Updates an existing role.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleRequest'
+      responses:
+        '200':
+          description: Role updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleResponse'
+        '400':
+          description: Invalid request data or circular hierarchy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Role not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Unique constraint violation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags: [Roles]
+      summary: Delete a role
+      description: Hard-deletes a role by ID.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204':
+          description: Role deleted successfully
+        '404':
+          description: Role not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/roles/{id}/permissions:
+    get:
+      tags: [Roles]
+      summary: Get permissions for a role
+      description: Retrieves direct permissions assigned to a role.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Permissions retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PermissionResponse'
+        '404':
+          description: Role not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags: [Roles]
+      summary: Replace permissions for a role
+      description: Replaces all permissions for a role.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PermissionAssignmentRequest'
+      responses:
+        '200':
+          description: Permissions replaced successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PermissionResponse'
+        '404':
+          description: Role or permission not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ─────────────────────────────────────────────────────────────────
+  # Permissions
+  # ─────────────────────────────────────────────────────────────────
+  /api/permissions:
+    post:
+      tags: [Permissions]
+      summary: Create a permission
+      description: Creates a new permission.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PermissionRequest'
+      responses:
+        '201':
+          description: Permission created successfully
+          headers:
+            Location:
+              description: URL of the created permission
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionResponse'
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Duplicate resource:action
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      tags: [Permissions]
+      summary: List permissions
+      description: Retrieves permissions with optional RSQL filters, sorting, and pagination.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+        - $ref: '#/components/parameters/Filters'
+        - $ref: '#/components/parameters/Offset'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Sort'
+      responses:
+        '200':
+          description: Permissions retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PermissionResponse'
+        '400':
+          description: Invalid filter or sort expression
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/permissions/{id}:
+    get:
+      tags: [Permissions]
+      summary: Get permission by ID
+      description: Retrieves a permission by its unique identifier.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Permission found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionResponse'
+        '404':
+          description: Permission not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags: [Permissions]
+      summary: Update a permission
+      description: Updates an existing permission.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PermissionRequest'
+      responses:
+        '200':
+          description: Permission updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionResponse'
+        '404':
+          description: Permission not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Duplicate resource:action
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags: [Permissions]
+      summary: Delete a permission
+      description: Hard-deletes a permission by ID.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204':
+          description: Permission deleted successfully
+        '404':
+          description: Permission not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ─────────────────────────────────────────────────────────────────
+  # Business Members
+  # ─────────────────────────────────────────────────────────────────
+  /api/business-members:
+    post:
+      tags: [Business Members]
+      summary: Create a business membership
+      description: Creates a new business membership.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BusinessMemberRequest'
+      responses:
+        '201':
+          description: Business membership created successfully
+          headers:
+            Location:
+              description: URL of the created membership
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessMemberResponse'
+        '400':
+          description: Invalid request data or user not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Duplicate membership
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: User is not active
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      tags: [Business Members]
+      summary: List memberships
+      description: Retrieves memberships with optional RSQL filters, sorting, and pagination.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+        - $ref: '#/components/parameters/Filters'
+        - $ref: '#/components/parameters/Offset'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Sort'
+      responses:
+        '200':
+          description: Memberships retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BusinessMemberResponse'
+        '400':
+          description: Invalid filter or sort expression
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/business-members/owner:
+    post:
+      tags: [Business Members]
+      summary: Create an owner membership
+      description: Creates an ACTIVE business membership for an owner and assigns business roles atomically.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOwnerRequest'
+      responses:
+        '201':
+          description: Owner membership created successfully
+          headers:
+            Location:
+              description: URL of the created membership
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessMemberResponse'
+        '400':
+          description: Invalid request data or non-BUSINESS role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Duplicate membership
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: User is not active
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/business-members/{id}:
+    get:
+      tags: [Business Members]
+      summary: Get a membership
+      description: Retrieves a business membership by ID.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Membership found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessMemberResponse'
+        '404':
+          description: Membership not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    patch:
+      tags: [Business Members]
+      summary: Update membership status
+      description: >
+        Updates the status of a business membership. Accepts either a
+        `BusinessMemberPatch` body (application/json) or a JSON Patch document
+        (application/json-patch+json). Only the `status` field is mutable.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BusinessMemberPatch'
+          application/json-patch+json:
+            schema:
+              $ref: '#/components/schemas/JsonPatch'
+      responses:
+        '200':
+          description: Status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessMemberResponse'
+        '400':
+          description: Invalid status transition or invalid patch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Membership not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags: [Business Members]
+      summary: Soft-delete a membership
+      description: Soft-deletes a business membership — revokes all roles and sets status to DELETED.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204':
+          description: Membership soft-deleted successfully
+        '400':
+          description: Membership is already deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Membership not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/business-members/{id}/roles:
+    get:
+      tags: [Business Members]
+      summary: Get business roles for a member
+      description: Retrieves business-scoped roles for an active member.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Roles retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RoleResponse'
+        '400':
+          description: Member is not active
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Membership not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags: [Business Members]
+      summary: Add business roles to a member
+      description: Adds business-scoped roles to a member without removing existing ones.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleAssignmentRequest'
+      responses:
+        '200':
+          description: Roles added successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RoleResponse'
+        '400':
+          description: Invalid role IDs, non-BUSINESS scope, or member not active
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Membership or role not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags: [Business Members]
+      summary: Replace business roles for a member
+      description: Replaces all business-scoped roles for a member.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleAssignmentRequest'
+      responses:
+        '200':
+          description: Roles replaced successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RoleResponse'
+        '400':
+          description: Invalid role IDs, non-BUSINESS scope, or member not active
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Membership or role not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags: [Business Members]
+      summary: Revoke business roles from a member
+      description: Removes the specified business-scoped roles from a member.
+      parameters:
+        - $ref: '#/components/parameters/AcceptVersion'
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleAssignmentRequest'
+      responses:
+        '200':
+          description: Roles revoked successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RoleResponse'
+        '400':
+          description: Member is not active
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Membership or role not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+# ─────────────────────────────────────────────────────────────────
+# Reusable components
+# ─────────────────────────────────────────────────────────────────
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    AcceptVersion:
+      name: Accept-Version
+      in: header
+      required: true
+      description: API version selector
+      schema:
+        type: string
+        enum: [application/vnd.auth-service.v1]
+      example: application/vnd.auth-service.v1
+
+    Id:
+      name: id
+      in: path
+      required: true
+      description: Resource UUID
+      schema:
+        type: string
+        format: uuid
+
+    Filters:
+      name: filters
+      in: query
+      required: false
+      description: RSQL filter expression (e.g. `email==*@example.com`)
+      schema:
+        type: string
+
+    Offset:
+      name: offset
+      in: query
+      required: false
+      description: Offset for pagination (0-based)
+      schema:
+        type: integer
+        minimum: 0
+        example: 0
+
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Maximum number of results to return
+      schema:
+        type: integer
+        minimum: 1
+        example: 20
+
+    Sort:
+      name: sort
+      in: query
+      required: false
+      description: Sort expression (e.g. `email,asc`)
+      schema:
+        type: string
+        example: createdAt,desc
+
+  schemas:
+
+    # ── Enums ──────────────────────────────────────────────────────
+    ScopeType:
+      type: string
+      enum: [PLATFORM, BUSINESS]
+      description: Role scope — PLATFORM for global roles, BUSINESS for tenant-scoped roles.
+
+    BusinessMemberStatusType:
+      type: string
+      enum: [PENDING, ACTIVE, SUSPENDED, REVOKED, DELETED]
+      description: Lifecycle status of a business membership.
+
+    # ── Auth ───────────────────────────────────────────────────────
+    AuthCheckRequest:
+      type: object
+      required: [userId, permission]
+      properties:
+        userId:
+          type: string
+          format: uuid
+          description: ID of the user to evaluate.
+        businessId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Business context UUID. Null for platform-scoped permission checks.
+        permission:
+          type: string
+          description: Permission string in resource:action format.
+          example: booking:read
+
+    AuthCheckResponse:
+      type: object
+      properties:
+        allowed:
+          type: boolean
+          description: Whether the user has the requested permission.
+
+    AuthAccessToken:
+      type: object
+      properties:
+        token_type:
+          type: string
+          example: Bearer
+        access_token:
+          type: string
+          description: JWT access token.
+        client_id:
+          type: string
+        scope:
+          type: string
+        expires_at:
+          type: integer
+          format: int64
+          description: Unix epoch seconds at which the token expires.
+        issued_at:
+          type: integer
+          format: int64
+          description: Unix epoch seconds at which the token was issued.
+
+    # ── Users ──────────────────────────────────────────────────────
+    UserRequest:
+      type: object
+      required: [email]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Optional client-supplied UUID (idempotency key).
+        email:
+          type: string
+          format: email
+          description: User email address (unique).
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        status:
+          type: string
+          description: User account status (e.g. ACTIVE, SUSPENDED).
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    UserProfileResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        platformRoles:
+          type: array
+          items:
+            type: string
+          description: List of platform-scoped role names.
+        platformPermissions:
+          type: array
+          items:
+            type: string
+          description: Effective platform permissions in resource:action format.
+        businesses:
+          type: array
+          items:
+            $ref: '#/components/schemas/BusinessContext'
+
+    BusinessContext:
+      type: object
+      properties:
+        businessId:
+          type: string
+          format: uuid
+        memberId:
+          type: string
+          format: uuid
+        roles:
+          type: array
+          items:
+            type: string
+          description: Business-scoped role names.
+        permissions:
+          type: array
+          items:
+            type: string
+          description: Effective business-scoped permissions.
+
+    # ── Roles ──────────────────────────────────────────────────────
+    RoleRequest:
+      type: object
+      required: [scope, name]
+      properties:
+        scope:
+          $ref: '#/components/schemas/ScopeType'
+        name:
+          type: string
+          description: Unique role name within its scope.
+        description:
+          type: string
+        parentId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Parent role UUID for hierarchical inheritance.
+        isSystem:
+          type: boolean
+          description: Whether this role is a system-managed role.
+
+    RoleResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        scope:
+          $ref: '#/components/schemas/ScopeType'
+        name:
+          type: string
+        description:
+          type: string
+        parentId:
+          type: string
+          format: uuid
+          nullable: true
+        isSystem:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    RoleAssignmentRequest:
+      type: object
+      required: [roleIds]
+      properties:
+        roleIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: List of role UUIDs to assign or revoke.
+
+    # ── Permissions ────────────────────────────────────────────────
+    PermissionRequest:
+      type: object
+      required: [resource, action]
+      properties:
+        resource:
+          type: string
+          description: Resource name (e.g. booking, user).
+          example: booking
+        action:
+          type: string
+          description: Action name (e.g. read, write, delete).
+          example: read
+        description:
+          type: string
+
+    PermissionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        resource:
+          type: string
+        action:
+          type: string
+        description:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    PermissionAssignmentRequest:
+      type: object
+      required: [permissionIds]
+      properties:
+        permissionIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: List of permission UUIDs to assign.
+
+    # ── Business Members ───────────────────────────────────────────
+    BusinessMemberRequest:
+      type: object
+      required: [userId, businessId, status]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        businessId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/BusinessMemberStatusType'
+
+    CreateOwnerRequest:
+      type: object
+      required: [userId, businessId]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        businessId:
+          type: string
+          format: uuid
+
+    BusinessMemberResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        businessId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/BusinessMemberStatusType'
+        joinedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    BusinessMemberPatch:
+      type: object
+      required: [status]
+      properties:
+        status:
+          $ref: '#/components/schemas/BusinessMemberStatusType'
+
+    # ── Shared ─────────────────────────────────────────────────────
+    JsonPatch:
+      type: array
+      description: A JSON Patch document as defined by RFC 6902.
+      items:
+        type: object
+        required: [op, path]
+        properties:
+          op:
+            type: string
+            enum: [add, remove, replace, move, copy, test]
+          path:
+            type: string
+            example: /status
+          value:
+            description: Value to apply (required for add/replace/test).
+
+    ErrorResponse:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: integer
+        error:
+          type: string
+        message:
+          type: string
+        path:
+          type: string

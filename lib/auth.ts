@@ -1,8 +1,35 @@
 import { betterAuth } from "better-auth";
+import { createAuthMiddleware } from "better-auth/api";
+import { jwt } from "better-auth/plugins";
 import { Pool } from "pg";
-import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL ?? "http://localhost:8080";
+const AUTH_SERVICE_VERSION = process.env.AUTH_SERVICE_API_VERSION ?? "application/vnd.auth-service.v1";
+
+async function registerUserInAuthService(userId: string, email: string) {
+  const headers = {
+    "Content-Type": "application/json",
+    "Accept-Version": AUTH_SERVICE_VERSION,
+  };
+
+  const createRes = await fetch(`${AUTH_SERVICE_URL}/api/users`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ id: userId, email }),
+  });
+  if (!createRes.ok && createRes.status !== 409) {
+    console.error("[AUTH-SERVICE] Failed to create user:", await createRes.text());
+  }
+}
+
+async function fetchUserProfile(userId: string) {
+  const res = await fetch(
+    `${AUTH_SERVICE_URL}/api/users/me?user_id=${userId}`,
+    { headers: { "Accept-Version": AUTH_SERVICE_VERSION } }
+  );
+  if (!res.ok) return null;
+  return res.json();
+}
 
 export const auth = betterAuth({
   database: new Pool({
@@ -10,22 +37,61 @@ export const auth = betterAuth({
   }),
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: true,
+    requireEmailVerification: false,
   },
-  emailVerification: {
-    sendOnSignUp: true,
-    autoSignInAfterVerification: true,
-    sendVerificationEmail: async ({ user, url }) => {
-      console.log("[EMAIL] Sending verification to:", user.email);
-      console.log("[EMAIL] Verification URL:", url);
-      const { data, error } = await resend.emails.send({
-        from: process.env.RESEND_FROM_EMAIL || "ClinicHub <onboarding@resend.dev>",
-        to: user.email,
-        subject: "Verify your email address",
-        html: `<p>Hi ${user.name},</p><p>Click the link below to verify your email:</p><p><a href="${url}">Verify Email</a></p>`,
-      });
-      if (error) console.error("[EMAIL] Resend error:", error);
-      else console.log("[EMAIL] Sent successfully, id:", data?.id);
+  advanced: {
+    database: {
+      generateId: () => crypto.randomUUID(),
     },
   },
+  databaseHooks: {
+    user: {
+      create: {
+        after: async (user) => {
+          console.log("[AUTH-SERVICE] databaseHook user.create.after fired for:", user.id, user.email);
+          await registerUserInAuthService(user.id, user.email);
+        },
+      },
+    },
+  },
+  session: {
+    additionalFields: {
+      platformRoles: { type: "string", defaultValue: "[]" },
+      platformPermissions: { type: "string", defaultValue: "[]" },
+      businesses: { type: "string", defaultValue: "[]" },
+    },
+  },
+  hooks: {
+    after: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== "/sign-in/email" && ctx.path !== "/sign-up/email" && ctx.path !== "/verify-email") return;
+
+      const returned = (ctx.context as unknown as { returned?: { token?: string; user?: { id: string } } })?.returned;
+      const session = ctx.context?.session;
+      const token = returned?.token ?? session?.session?.token;
+      const userId = returned?.user?.id ?? session?.user?.id;
+      if (!token || !userId) return;
+
+      const profile = await fetchUserProfile(userId);
+      if (!profile) return;
+
+      await ctx.context.internalAdapter.updateSession(token, {
+        platformRoles: JSON.stringify(profile.platform_roles ?? []),
+        platformPermissions: JSON.stringify(profile.platform_permissions ?? []),
+        businesses: JSON.stringify(profile.businesses ?? []),
+      });
+    }),
+  },
+  plugins: [
+    jwt({
+      jwt: {
+        expirationTime: "1h",
+        definePayload: (session) => ({
+          sub: session.user.id,
+          "custom:platform_roles": JSON.parse((session as unknown as Record<string, string>).platformRoles ?? "[]"),
+          "custom:platform_permissions": JSON.parse((session as unknown as Record<string, string>).platformPermissions ?? "[]"),
+          "custom:businesses": JSON.parse((session as unknown as Record<string, string>).businesses ?? "[]"),
+        }),
+      },
+    }),
+  ],
 });

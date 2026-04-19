@@ -2,10 +2,17 @@
 
 import { useSession, signOut } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export default function DashboardPage() {
   const { data: session, isPending } = useSession();
   const router = useRouter();
+
+  useEffect(() => {
+    if (!isPending && !session?.user) {
+      router.push("/signin");
+    }
+  }, [isPending, session, router]);
 
   if (isPending) {
     return (
@@ -15,8 +22,7 @@ export default function DashboardPage() {
     );
   }
 
-  if (!session) {
-    router.push("/signin");
+  if (!session?.user) {
     return null;
   }
 

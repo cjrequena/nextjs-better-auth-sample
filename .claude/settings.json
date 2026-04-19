@@ -1,0 +1,41 @@
+{
+  "model": "sonnet",
+  "env": {
+    "MAX_THINKING_TOKENS": "10000",
+    "CLAUDE_CODE_SUBAGENT_MODEL": "haiku",
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "50",
+    "DISABLE_NON_ESSENTIAL_MODEL_CALLS": "1"
+  },
+  "permissions": {
+    "deny": [
+      "Read(//etc/**)",
+      "Read(//root/**)",
+      "Read(//home/**)",
+      "Read(//usr/**)",
+      "Read(//var/**)",
+      "Read(//sys/**)",
+      "Read(//proc/**)",
+      "Bash(find / *)",
+      "Bash(ls /)",
+      "Bash(cat /etc/*)",
+      "Bash(sudo *)"
+    ],
+    "allow": [
+      "Read(./**)",
+      "Edit(./**)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Remember to update Last Updated date in Arc42 docs if architectural concepts changed'"
+          }
+        ]
+      }
+    ]
+  }
+}
