@@ -2,7 +2,10 @@ import { betterAuth } from "better-auth";
 import { createAuthMiddleware } from "better-auth/api";
 import { jwt } from "better-auth/plugins";
 import { Pool } from "pg";
+import { Resend } from "resend";
 import { registerUser, fetchUserProfile } from "@/services/auth-service";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export const auth = betterAuth({
   database: new Pool({
@@ -10,7 +13,29 @@ export const auth = betterAuth({
   }),
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: false,
+    requireEmailVerification: true,
+    sendVerificationEmail: async ({ user, url }: { user: { email: string }; url: string }) => {
+      console.log("[AUTH] sendVerificationEmail called for:", user.email);
+      const { data, error } = await resend.emails.send({
+        from: process.env.RESEND_FROM_EMAIL!,
+        to: user.email,
+        subject: "Verify your email address",
+        html: `<p>Click <a href="${url}">here</a> to verify your email address.</p>`,
+      });
+      if (error) console.error("[AUTH] Resend verification error:", error);
+      else console.log("[AUTH] Verification email sent:", data);
+    },
+    sendResetPassword: async ({ user, url }: { user: { email: string }; url: string }) => {
+      console.log("[AUTH] sendResetPassword called for:", user.email);
+      const { data, error } = await resend.emails.send({
+        from: process.env.RESEND_FROM_EMAIL!,
+        to: user.email,
+        subject: "Reset your password",
+        html: `<p>Click <a href="${url}">here</a> to reset your password. This link expires in 1 hour.</p>`,
+      });
+      if (error) console.error("[AUTH] Resend reset error:", error);
+      else console.log("[AUTH] Reset email sent:", data);
+    },
   },
   advanced: {
     database: {
