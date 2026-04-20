@@ -1377,12 +1377,12 @@ components:
         email:
           type: string
           format: email
-        platformRoles:
+        roles:
           type: array
           items:
             type: string
           description: List of platform-scoped role names.
-        platformPermissions:
+        permissions:
           type: array
           items:
             type: string

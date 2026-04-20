@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState, FormEvent } from "react";
-import { signIn } from "@/lib/auth-client";
-import { useRouter } from "next/navigation";
+import {FormEvent, useState} from "react";
+import {signIn} from "@/lib/auth-client";
+import {useRouter} from "next/navigation";
 
 export default function SignInPage() {
   const router = useRouter();

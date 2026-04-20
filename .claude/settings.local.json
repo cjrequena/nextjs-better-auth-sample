@@ -3,7 +3,11 @@
     "allow": [
       "Bash(./mvnw compile:*)",
       "Bash(mvn compile:*)",
-      "Bash(touch src/main/java/io/jaspe/auth/service/BusinessMemberService.java)"
+      "Bash(touch src/main/java/io/jaspe/auth/service/BusinessMemberService.java)",
+      "Bash(find:*)",
+      "Bash(ls node_modules/better-auth/dist/cli*)",
+      "Bash(ls node_modules/better-auth/bin*)",
+      "Bash(ls node_modules/better-auth/*.js)"
     ]
   }
 }

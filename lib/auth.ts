@@ -1,9 +1,9 @@
-import { betterAuth } from "better-auth";
-import { createAuthMiddleware } from "better-auth/api";
-import { jwt } from "better-auth/plugins";
-import { Pool } from "pg";
-import { Resend } from "resend";
-import { registerUser, fetchUserProfile } from "@/services/auth-service";
+import {betterAuth} from "better-auth";
+import {createAuthMiddleware} from "better-auth/api";
+import {jwt} from "better-auth/plugins";
+import {Pool} from "pg";
+import {Resend} from "resend";
+import {BusinessContext, createUser, me, UserProfile} from "@/services/auth-service";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -14,17 +14,6 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: true,
-    sendVerificationEmail: async ({ user, url }: { user: { email: string }; url: string }) => {
-      console.log("[AUTH] sendVerificationEmail called for:", user.email);
-      const { data, error } = await resend.emails.send({
-        from: process.env.RESEND_FROM_EMAIL!,
-        to: user.email,
-        subject: "Verify your email address",
-        html: `<p>Click <a href="${url}">here</a> to verify your email address.</p>`,
-      });
-      if (error) console.error("[AUTH] Resend verification error:", error);
-      else console.log("[AUTH] Verification email sent:", data);
-    },
     sendResetPassword: async ({ user, url }: { user: { email: string }; url: string }) => {
       console.log("[AUTH] sendResetPassword called for:", user.email);
       const { data, error } = await resend.emails.send({
@@ -37,6 +26,20 @@ export const auth = betterAuth({
       else console.log("[AUTH] Reset email sent:", data);
     },
   },
+  emailVerification: {
+    sendVerificationEmail: async ({ user, url }: { user: { email: string }; url: string }) => {
+      console.log("[AUTH] sendVerificationEmail called for:", user.email);
+      const { data, error } = await resend.emails.send({
+        from: process.env.RESEND_FROM_EMAIL!,
+        to: user.email,
+        subject: "Verify your email address",
+        html: `<p>Click <a href="${url}">here</a> to verify your email address.</p>`,
+      });
+      if (error) console.error("[AUTH] Resend verification error:", error);
+      else console.log("[AUTH] Verification email sent:", data);
+    },
+    sendOnSignUp: true,
+  },
   advanced: {
     database: {
       generateId: () => crypto.randomUUID(),
@@ -46,16 +49,17 @@ export const auth = betterAuth({
     user: {
       create: {
         after: async (user) => {
-          await registerUser(user.id, user.email);
+          await createUser(user.id, user.email);
         },
       },
     },
   },
   session: {
     additionalFields: {
-      platformRoles: { type: "string", defaultValue: "[]" },
-      platformPermissions: { type: "string", defaultValue: "[]" },
+      roles: { type: "string", defaultValue: "[]" },
+      permissions: { type: "string", defaultValue: "[]" },
       businesses: { type: "string", defaultValue: "[]" },
+      activeBusiness: { type: "string", defaultValue: "" },
     },
   },
   hooks: {
@@ -68,13 +72,21 @@ export const auth = betterAuth({
       const userId = returned?.user?.id ?? session?.user?.id;
       if (!token || !userId) return;
 
-      const profile = await fetchUserProfile(userId);
+      const profile: UserProfile | null = await me(userId);
       if (!profile) return;
 
+      const businesses: BusinessContext[] = profile.businesses ?? [];
+      const activeBusinessId = businesses.length > 0 ? businesses[0].business_id : "";
+      const activeBiz = businesses.find((b: BusinessContext) => b.business_id === activeBusinessId);
+
+      const roles: string[] = [...(profile.roles ?? []), ...(activeBiz?.roles ?? [])];
+      const permissions: string[] = [...(profile.permissions ?? []), ...(activeBiz?.permissions ?? [])];
+
       await ctx.context.internalAdapter.updateSession(token, {
-        platformRoles: JSON.stringify(profile.platform_roles ?? []),
-        platformPermissions: JSON.stringify(profile.platform_permissions ?? []),
-        businesses: JSON.stringify(profile.businesses ?? []),
+        roles: JSON.stringify(roles),
+        permissions: JSON.stringify(permissions),
+        businesses: JSON.stringify(businesses),
+        activeBusiness: activeBusinessId,
       });
     }),
   },
@@ -82,12 +94,15 @@ export const auth = betterAuth({
     jwt({
       jwt: {
         expirationTime: "1h",
-        definePayload: (session) => ({
-          sub: session.user.id,
-          "custom:platform_roles": JSON.parse((session as unknown as Record<string, string>).platformRoles ?? "[]"),
-          "custom:platform_permissions": JSON.parse((session as unknown as Record<string, string>).platformPermissions ?? "[]"),
-          "custom:businesses": JSON.parse((session as unknown as Record<string, string>).businesses ?? "[]"),
-        }),
+        definePayload: (session) => {
+          const s = session.session as unknown as Record<string, string>;
+          return {
+            sub: session.user.id,
+            "custom:roles": JSON.parse(s.roles ?? "[]"),
+            "custom:permissions": JSON.parse(s.permissions ?? "[]"),
+            "custom:businesses": JSON.parse(s.businesses ?? "[]"),
+          };
+        },
       },
     }),
   ],

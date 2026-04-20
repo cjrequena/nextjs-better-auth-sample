@@ -1,8 +1,8 @@
 "use client";
 
-import { useSession, signOut } from "@/lib/auth-client";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import {signOut, useSession} from "@/lib/auth-client";
+import {useRouter} from "next/navigation";
+import {useEffect} from "react";
 
 export default function DashboardPage() {
   const { data: session, isPending } = useSession();

@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState, FormEvent } from "react";
-import { signUp } from "@/lib/auth-client";
+import {FormEvent, useState} from "react";
+import {signUp} from "@/lib/auth-client";
 
 export default function SignUpPage() {
   const [name, setName] = useState("");

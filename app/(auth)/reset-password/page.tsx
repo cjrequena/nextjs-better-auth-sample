@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState, FormEvent, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { resetPassword } from "@/lib/auth-client";
+import {FormEvent, Suspense, useState} from "react";
+import {useRouter, useSearchParams} from "next/navigation";
+import {resetPassword} from "@/lib/auth-client";
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
