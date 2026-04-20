@@ -1,3 +1,6 @@
+export type { BusinessContext, UserProfile } from "@/types/business";
+import type { UserProfile } from "@/types/business";
+
 const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL ?? "http://localhost:8080";
 const AUTH_SERVICE_VERSION = process.env.AUTH_SERVICE_API_VERSION ?? "application/vnd.auth-service.v1";
 
@@ -5,21 +8,6 @@ const headers = {
   "Content-Type": "application/json",
   "Accept-Version": AUTH_SERVICE_VERSION,
 };
-
-export interface BusinessContext {
-  business_id: string;
-  member_id: string;
-  roles: string[];
-  permissions: string[];
-}
-
-export interface UserProfile {
-  user_id: string;
-  email: string;
-  roles: string[];
-  permissions: string[];
-  businesses?: BusinessContext[];
-}
 
 export async function createUser(userId: string, email: string) {
   const response: Response = await fetch(`${AUTH_SERVICE_URL}/api/users`, {

@@ -3,7 +3,8 @@ import {createAuthMiddleware} from "better-auth/api";
 import {jwt} from "better-auth/plugins";
 import {Pool} from "pg";
 import {Resend} from "resend";
-import {BusinessContext, createUser, me, UserProfile} from "@/services/auth-service";
+import type {BusinessContext, UserProfile} from "@/types/business";
+import {createUser, me} from "@/services/auth-service";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
