@@ -78,10 +78,11 @@ export const auth = betterAuth({
 
       const businesses: BusinessContext[] = profile.businesses ?? [];
       const activeBusinessId = businesses.length > 0 ? businesses[0].business_id : "";
-      const activeBiz = businesses.find((b: BusinessContext) => b.business_id === activeBusinessId);
 
-      const roles: string[] = [...(profile.roles ?? []), ...(activeBiz?.roles ?? [])];
-      const permissions: string[] = [...(profile.permissions ?? []), ...(activeBiz?.permissions ?? [])];
+      // Store platform-only roles/permissions — aggregation with the active
+      // business is done downstream (AuthProvider for UI, auth-service for enforcement).
+      const roles: string[] = profile.roles ?? [];
+      const permissions: string[] = profile.permissions ?? [];
 
       await ctx.context.internalAdapter.updateSession(token, {
         roles: JSON.stringify(roles),

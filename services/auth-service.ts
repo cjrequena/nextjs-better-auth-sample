@@ -35,3 +35,30 @@ export async function me(userId: string): Promise<UserProfile | null> {
   console.log("[AUTH-SERVICE] me response:", JSON.stringify(data, null, 2));
   return data;
 }
+
+/**
+ * Layer 4 — API-level permission check against the auth-service.
+ * This is the ONLY real security boundary. Call server-side only
+ * (API routes, Server Components, server actions).
+ */
+export async function checkPermission(
+  userId: string,
+  permission: string,
+  businessId?: string
+): Promise<boolean> {
+  const response: Response = await fetch(`${AUTH_SERVICE_URL}/api/auth/check`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      userId,
+      permission,
+      ...(businessId ? { businessId } : {}),
+    }),
+  });
+  if (!response.ok) {
+    console.error("[AUTH-SERVICE] checkPermission failed:", response.status);
+    return false;
+  }
+  const data: { allowed: boolean } = await response.json();
+  return data.allowed;
+}
