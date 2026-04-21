@@ -126,3 +126,7 @@ build/
 .idea_modules/
 atlassian-ide-plugin.xml
 
+######################
+# VSCODE
+######################
+.vscode/
