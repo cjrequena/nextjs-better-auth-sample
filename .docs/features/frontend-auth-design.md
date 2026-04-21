@@ -416,18 +416,24 @@ import { useAuth } from "@/lib/auth-provider";
 import type { ReactNode } from "react";
 
 interface RequirePermissionProps {
-  permission: string;
+  permission: string | string[];
+  operator?: "every" | "some";
   fallback?: ReactNode;
   children: ReactNode;
 }
 
 export function RequirePermission({
   permission,
+  operator = "every",
   fallback = null,
   children,
 }: RequirePermissionProps) {
   const { hasPermission } = useAuth();
-  return hasPermission(permission) ? <>{children}</> : <>{fallback}</>;
+  const perms = Array.isArray(permission) ? permission : [permission];
+  const granted = operator === "every"
+    ? perms.every(hasPermission)
+    : perms.some(hasPermission);
+  return granted ? <>{children}</> : <>{fallback}</>;
 }
 ```
 
@@ -439,30 +445,53 @@ import { useAuth } from "@/lib/auth-provider";
 import type { ReactNode } from "react";
 
 interface RequireRoleProps {
-  role: string;
+  role: string | string[];
+  operator?: "every" | "some";
   fallback?: ReactNode;
   children: ReactNode;
 }
 
 export function RequireRole({
   role,
+  operator = "every",
   fallback = null,
   children,
 }: RequireRoleProps) {
   const { hasRole } = useAuth();
-  return hasRole(role) ? <>{children}</> : <>{fallback}</>;
+  const roles = Array.isArray(role) ? role : [role];
+  const granted = operator === "every"
+    ? roles.every(hasRole)
+    : roles.some(hasRole);
+  return granted ? <>{children}</> : <>{fallback}</>;
 }
 ```
 
-**Usage example:**
+**Usage examples:**
 
 ```tsx
+{/* Single permission */}
 <RequirePermission permission="appointments:write">
   <button onClick={handleDeleteAppointment}>Delete Appointment</button>
 </RequirePermission>
 
+{/* All required (default operator="every") */}
+<RequirePermission permission={["appointments:read", "appointments:write"]}>
+  <AppointmentEditor />
+</RequirePermission>
+
+{/* Any one suffices */}
+<RequirePermission permission={["billing:read", "billing:manage"]} operator="some">
+  <BillingDashboard />
+</RequirePermission>
+
+{/* Single role */}
 <RequireRole role="CLINIC_OWNER" fallback={<p>Owner access required.</p>}>
   <ClinicSettingsPanel />
+</RequireRole>
+
+{/* Any of these roles */}
+<RequireRole role={["CLINIC_OWNER", "PLATFORM_ADMIN"]} operator="some">
+  <AdminPanel />
 </RequireRole>
 ```
 
