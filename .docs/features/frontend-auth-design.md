@@ -68,8 +68,8 @@ graph LR
 | `types/business.ts` | `BusinessContext`, `UserProfile` interfaces |
 | `types/auth.ts` | `EnrichedSession`, `ParsedSessionFields` interfaces |
 | `lib/auth-provider.tsx` | Layer 1 — React context providing parsed auth state and runtime aggregation |
-| `components/shared/HasPermission.tsx` | Layer 2 — Declarative permission guard component |
-| `components/shared/HasRole.tsx` | Layer 2 — Declarative role guard component |
+| `components/auth/HasPermission.tsx` | Layer 2 — Declarative permission guard component |
+| `components/auth/HasRole.tsx` | Layer 2 — Declarative role guard component |
 
 
 ### 1.2 Sign-Up Flow
@@ -299,7 +299,6 @@ The `AuthProvider` must wrap the application and expose parsed authorization dat
 import {
   createContext,
   useContext,
-  useEffect,
   useMemo,
   useState,
   useCallback,
@@ -322,7 +321,7 @@ export interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   const { data: session, isPending } = useSession();
 
   const parsed = useMemo(() => {
@@ -338,12 +337,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [session]);
 
-  const [activeBusinessId, setActiveBusinessId] = useState(parsed.activeBusiness);
-
-  // Sync state when session loads or changes (useState only captures the initial value)
-  useEffect(() => {
-    setActiveBusinessId(parsed.activeBusiness);
-  }, [parsed.activeBusiness]);
+  const [overrideBusinessId, setOverrideBusinessId] = useState<string | null>(null);
+  const activeBusinessId = overrideBusinessId ?? parsed.activeBusiness;
 
   // Aggregate platform + active business roles/permissions at runtime.
   // The session stores platform-only claims; business claims live in parsed.businesses.
@@ -367,7 +362,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const setActiveBusiness = useCallback((businessId: string) => {
-    setActiveBusinessId(businessId);
+    setOverrideBusinessId(businessId);
   }, []);
 
   const value: AuthContextValue = useMemo(
@@ -409,7 +404,7 @@ export function useAuth(): AuthContextValue {
 These components consume the `AuthProvider` context and conditionally render children. They are pure UI convenience — they must never enforce security.
 
 ```typescript
-// components/shared/HasPermission.tsx
+// components/auth/HasPermission.tsx
 "use client";
 
 import { useAuth } from "@/lib/auth-provider";
@@ -438,7 +433,7 @@ export function HasPermission({
 ```
 
 ```typescript
-// components/shared/HasRole.tsx
+// components/auth/HasRole.tsx
 "use client";
 
 import { useAuth } from "@/lib/auth-provider";
