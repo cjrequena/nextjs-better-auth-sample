@@ -3,7 +3,6 @@
 import {
   createContext,
   useContext,
-  useEffect,
   useMemo,
   useState,
   useCallback,
@@ -26,10 +25,15 @@ export interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   const { data: session, isPending } = useSession();
 
-  const parsed = useMemo(() => {
+  const parsed: { roles: any[]; permissions: any[]; businesses: any[]; activeBusiness: string } | {
+    roles: string[];
+    permissions: string[];
+    businesses: BusinessContext[];
+    activeBusiness: string
+  } = useMemo(() => {
     if (!session?.session) {
       return { roles: [], permissions: [], businesses: [], activeBusiness: "" };
     }
@@ -42,12 +46,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [session]);
 
-  const [activeBusinessId, setActiveBusinessId] = useState(parsed.activeBusiness);
-
-  // Sync state when session loads or changes (useState only captures the initial value)
-  useEffect(() => {
-    setActiveBusinessId(parsed.activeBusiness);
-  }, [parsed.activeBusiness]);
+  const [overrideBusinessId, setOverrideBusinessId] = useState<string | null>(null);
+  const activeBusinessId = overrideBusinessId ?? parsed.activeBusiness;
 
   // Aggregate platform + active business roles/permissions at runtime.
   // The session stores platform-only claims; business claims live in parsed.businesses.
@@ -71,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const setActiveBusiness = useCallback((businessId: string) => {
-    setActiveBusinessId(businessId);
+    setOverrideBusinessId(businessId);
   }, []);
 
   const value: AuthContextValue = useMemo(
