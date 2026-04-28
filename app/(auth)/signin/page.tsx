@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState, FormEvent } from "react";
-import { signIn } from "@/lib/auth-client";
-import { useRouter } from "next/navigation";
+import {FormEvent, useState} from "react";
+import {signIn} from "@/lib/auth-client";
+import {useRouter} from "next/navigation";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -65,7 +65,10 @@ export default function SignInPage() {
             </button>
           </form>
 
-          <p className="text-center text-sm mt-4">
+          <p className="text-center text-sm mt-2">
+            <Link href="/forgot-password" className="link link-primary">Forgot password?</Link>
+          </p>
+          <p className="text-center text-sm mt-2">
             Don&apos;t have an account?{" "}
             <Link href="/signup" className="link link-primary">Sign Up</Link>
           </p>

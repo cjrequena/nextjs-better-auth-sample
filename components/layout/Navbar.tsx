@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useSession, signOut } from "@/lib/auth-client";
-import { useRouter } from "next/navigation";
+import {signOut, useSession} from "@/lib/auth-client";
+import {useRouter} from "next/navigation";
 
 export default function Navbar() {
   const { data: session } = useSession();
