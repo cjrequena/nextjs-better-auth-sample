@@ -15,15 +15,15 @@ interface RequirePermissionProps {
  * UX convenience only — not a security boundary.
  *
  * @example Single permission
- * <RequirePermission permission="appointments:read">...</RequirePermission>
+ * <HasPermission permission="appointments:read">...</HasPermission>
  *
  * @example All required (default)
- * <RequirePermission permission={["appointments:read", "appointments:write"]}>...</RequirePermission>
+ * <HasPermission permission={["appointments:read", "appointments:write"]}>...</HasPermission>
  *
  * @example Any one suffices
- * <RequirePermission permission={["billing:read", "billing:manage"]} operator="some">...</RequirePermission>
+ * <HasPermission permission={["billing:read", "billing:manage"]} operator="some">...</HasPermission>
  */
-export function RequirePermission({
+export function HasPermission({
   permission,
   operator = "every",
   fallback = null,
@@ -32,7 +32,7 @@ export function RequirePermission({
   const { hasPermission } = useAuth();
   const perms = Array.isArray(permission) ? permission : [permission];
   const granted = operator === "every"
-    ? perms.every(hasPermission)
-    : perms.some(hasPermission);
+    ? perms.every((element) => hasPermission(element))
+    : perms.some((element) => hasPermission(element));
   return granted ? <>{children}</> : <>{fallback}</>;
 }

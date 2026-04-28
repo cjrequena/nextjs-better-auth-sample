@@ -15,15 +15,15 @@ interface RequireRoleProps {
  * UX convenience only — not a security boundary.
  *
  * @example Single role
- * <RequireRole role="CLINIC_OWNER">...</RequireRole>
+ * <HasRole role="CLINIC_OWNER">...</HasRole>
  *
  * @example Any one suffices
- * <RequireRole role={["CLINIC_OWNER", "PLATFORM_ADMIN"]} operator="some">...</RequireRole>
+ * <HasRole role={["CLINIC_OWNER", "PLATFORM_ADMIN"]} operator="some">...</HasRole>
  *
  * @example All required (default)
- * <RequireRole role={["PRACTITIONER", "STAFF"]}>...</RequireRole>
+ * <HasRole role={["PRACTITIONER", "STAFF"]}>...</HasRole>
  */
-export function RequireRole({
+export function HasRole({
   role,
   operator = "every",
   fallback = null,

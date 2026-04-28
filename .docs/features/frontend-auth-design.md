@@ -68,8 +68,8 @@ graph LR
 | `types/business.ts` | `BusinessContext`, `UserProfile` interfaces |
 | `types/auth.ts` | `EnrichedSession`, `ParsedSessionFields` interfaces |
 | `lib/auth-provider.tsx` | Layer 1 — React context providing parsed auth state and runtime aggregation |
-| `components/shared/RequirePermission.tsx` | Layer 2 — Declarative permission guard component |
-| `components/shared/RequireRole.tsx` | Layer 2 — Declarative role guard component |
+| `components/shared/HasPermission.tsx` | Layer 2 — Declarative permission guard component |
+| `components/shared/HasRole.tsx` | Layer 2 — Declarative role guard component |
 
 
 ### 1.2 Sign-Up Flow
@@ -284,7 +284,7 @@ interface ParsedSessionFields {
 | # | Layer | Where it runs | What it checks | Trust level | Purpose |
 |---|---|---|---|---|---|
 | 1 | **AuthProvider** (React Context) | Browser | Parsed session fields (roles, permissions, businesses) | None — client-side state | Provide auth context to React tree; enable conditional rendering |
-| 2 | **Declarative Components** (`<RequirePermission>`, `<RequireRole>`) | Browser | AuthProvider context values | None — pure UI convenience | Hide/show UI elements based on permissions; reduce boilerplate |
+| 2 | **Declarative Components** (`<HasPermission>`, `<HasRole>`) | Browser | AuthProvider context values | None — pure UI convenience | Hide/show UI elements based on permissions; reduce boilerplate |
 | 3 | **Next.js Middleware** (`middleware.ts`) | Edge (server) | Session cookie existence; optionally role claims | Low — cookies can be forged | Redirect unauthenticated users; coarse route protection |
 | 4 | **API-Level Enforcement** (`POST /api/auth/check`) | auth-service (Spring Boot) | Database-backed role/permission evaluation | **High — single source of truth** | **Real security boundary**; gate sensitive operations server-side |
 
@@ -409,7 +409,7 @@ export function useAuth(): AuthContextValue {
 These components consume the `AuthProvider` context and conditionally render children. They are pure UI convenience — they must never enforce security.
 
 ```typescript
-// components/shared/RequirePermission.tsx
+// components/shared/HasPermission.tsx
 "use client";
 
 import { useAuth } from "@/lib/auth-provider";
@@ -422,7 +422,7 @@ interface RequirePermissionProps {
   children: ReactNode;
 }
 
-export function RequirePermission({
+export function HasPermission({
   permission,
   operator = "every",
   fallback = null,
@@ -438,7 +438,7 @@ export function RequirePermission({
 ```
 
 ```typescript
-// components/shared/RequireRole.tsx
+// components/shared/HasRole.tsx
 "use client";
 
 import { useAuth } from "@/lib/auth-provider";
@@ -451,7 +451,7 @@ interface RequireRoleProps {
   children: ReactNode;
 }
 
-export function RequireRole({
+export function HasRole({
   role,
   operator = "every",
   fallback = null,
@@ -470,29 +470,29 @@ export function RequireRole({
 
 ```tsx
 {/* Single permission */}
-<RequirePermission permission="appointments:write">
+<HasPermission permission="appointments:write">
   <button onClick={handleDeleteAppointment}>Delete Appointment</button>
-</RequirePermission>
+</HasPermission>
 
 {/* All required (default operator="every") */}
-<RequirePermission permission={["appointments:read", "appointments:write"]}>
+<HasPermission permission={["appointments:read", "appointments:write"]}>
   <AppointmentEditor />
-</RequirePermission>
+</HasPermission>
 
 {/* Any one suffices */}
-<RequirePermission permission={["billing:read", "billing:manage"]} operator="some">
+<HasPermission permission={["billing:read", "billing:manage"]} operator="some">
   <BillingDashboard />
-</RequirePermission>
+</HasPermission>
 
 {/* Single role */}
-<RequireRole role="CLINIC_OWNER" fallback={<p>Owner access required.</p>}>
+<HasRole role="CLINIC_OWNER" fallback={<p>Owner access required.</p>}>
   <ClinicSettingsPanel />
-</RequireRole>
+</HasRole>
 
 {/* Any of these roles */}
-<RequireRole role={["CLINIC_OWNER", "PLATFORM_ADMIN"]} operator="some">
+<HasRole role={["CLINIC_OWNER", "PLATFORM_ADMIN"]} operator="some">
   <AdminPanel />
-</RequireRole>
+</HasRole>
 ```
 
 ### 2.4 Layer 3 — Next.js Middleware
@@ -639,7 +639,7 @@ This diagram shows how a sensitive action ("delete appointment") passes through 
 sequenceDiagram
     actor User
     participant L1 as Layer 1: AuthProvider
-    participant L2 as Layer 2: RequirePermission
+    participant L2 as Layer 2: HasPermission
     participant L3 as Layer 3: Middleware
     participant API as Next.js API Route
     participant L4 as Layer 4: POST /api/auth/check
@@ -651,7 +651,7 @@ sequenceDiagram
     L1->>L1: hasPermission("appointments:delete") → true
     Note over L1: UX check passed — button was visible
 
-    L2->>L2: RequirePermission rendered the button
+    L2->>L2: HasPermission rendered the button
     Note over L2: UX check — button was shown because permission existed in context
 
     User->>L3: DELETE /dashboard/appointments/123
@@ -895,7 +895,7 @@ This file must be deleted. The better-auth server configuration, database hooks,
 | `types/business.ts` | `BusinessContext` and `UserProfile` are domain types — provider-agnostic. |
 | `types/auth.ts` | `EnrichedSession` and `ParsedSessionFields` remain valid (data shape is the same). |
 | AuthProvider (Layer 1) | Same interface — reads roles/permissions/businesses from the session. If using the adapter pattern (Section 3.6), no changes needed. If migrating directly, the session source changes from `useSession()` to Cognito `fetchAuthSession()` but the output shape is identical. |
-| `<RequirePermission>` / `<RequireRole>` (Layer 2) | Pure UI components that read from AuthProvider context. No change needed. |
+| `<HasPermission>` / `<HasRole>` (Layer 2) | Pure UI components that read from AuthProvider context. No change needed. |
 | `POST /api/auth/check` (Layer 4) | The auth-service endpoint is completely independent of the identity provider. |
 | All Spring auth-service code | Zero changes. The service supports both `local` and `idp` security profiles. |
 
