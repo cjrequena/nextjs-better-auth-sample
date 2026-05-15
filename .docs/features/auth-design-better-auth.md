@@ -205,7 +205,7 @@ The JWT plugin (`better-auth/plugins/jwt`) must produce tokens with a 1-hour exp
     {
       "business_id": "b1a2c3d4-...",
       "member_id": "m5e6f7a8-...",
-      "roles": ["CLINIC_OWNER"],
+      "roles": ["OWNER"],
       "permissions": ["appointments:read", "appointments:write", "billing:read", "billing:write"]
     }
   ],
@@ -471,12 +471,12 @@ export function HasRole({
 </HasPermission>
 
 {/* Single role */}
-<HasRole role="CLINIC_OWNER" fallback={<p>Owner access required.</p>}>
+<HasRole role="OWNER" fallback={<p>Owner access required.</p>}>
   <ClinicSettingsPanel />
 </HasRole>
 
 {/* Any of these roles */}
-<HasRole role={["CLINIC_OWNER", "PLATFORM_ADMIN"]} operator="some">
+<HasRole role={["OWNER", "PLATFORM_ADMIN"]} operator="some">
   <AdminPanel />
 </HasRole>
 ```
@@ -512,7 +512,7 @@ import { getSessionCookie } from "better-auth/cookies";
 
 const ROLE_ROUTES: Record<string, string[]> = {
   "/dashboard/admin": ["PLATFORM_ADMIN"],
-  "/dashboard/billing": ["CLINIC_OWNER", "BILLING_MANAGER"],
+  "/dashboard/billing": ["OWNER", "BILLING_MANAGER"],
 };
 
 export function middleware(req: NextRequest) {
@@ -677,7 +677,7 @@ If the user had tampered with their session cookie to include `appointments:dele
 | Term | Definition |
 |---|---|
 | **Platform roles** | Roles scoped to the entire ClinicHub platform (e.g., `PLATFORM_ADMIN`, `SUPPORT_AGENT`). Assigned directly to a user via `POST /api/users/{userId}/roles`. Apply regardless of which business is active. |
-| **Business roles** | Roles scoped to a specific business/clinic (e.g., `CLINIC_OWNER`, `PRACTITIONER`, `RECEPTIONIST`). Assigned to a business membership via `POST /api/business-members/{id}/roles`. Only active when the corresponding business is selected. |
+| **Business roles** | Roles scoped to a specific business/clinic (e.g., `OWNER`, `PRACTITIONER`, `RECEPTIONIST`). Assigned to a business membership via `POST /api/business-members/{id}/roles`. Only active when the corresponding business is selected. |
 | **Business context** | The combination of `business_id`, `member_id`, `roles[]`, and `permissions[]` that describes a user's membership in a specific business. A user can have multiple business contexts. Represented by the `BusinessContext` type in `types/business.ts`. |
 | **Session enrichment** | The process of decorating a better-auth session with authorization data (roles, permissions, businesses) fetched from the auth-service. Runs inside `hooks.after` on sign-in, sign-up, and email verification. Stores platform-only roles/permissions as top-level fields and all business memberships in the `businesses` field. Does **not** aggregate platform + business claims — that is a downstream concern. |
 | **Claim aggregation** | The runtime merging of platform-level roles/permissions with the active business's roles/permissions into a single effective set. Formula: `effective = [...platformRoles, ...activeBusinessRoles]`. Performed by the AuthProvider (for UI decisions) or the auth-service (for real enforcement). Never done at token issuance time — the token carries the raw, un-aggregated data. |
